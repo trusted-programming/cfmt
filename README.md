@@ -1,44 +1,48 @@
-# cfmt - 零代码段实现RUST的格式化输出功能
+# cfmt - Format output without Rust code segment in binary
 
-cfmt应用于RUST/C并存的极端受限的嵌入式环境，完全避免使用rust格式化输出功能，将RUST的格式化输出转换为C的格式化输出，最终的目标是是减少二进制大小。
+Restricted on embedded systems, the goal of `cfmt` is to reduce the ultimate
+binary size. With `cfmt`, one could avoid the uses of Rust format print
+function by converting them into formatted print in C. 
 
-## 使用方式Usage
+## Usage
 
-格式化字符串的规则定义如下：
+The specification of the formatted strings is defined as follows:
 
 ```text
 format-spec = {:d|u|x|p|e|cs|rs|rb|cc|rc}
-d: 参数类型为整数，按10进制输出，对应%lld
-u: 参数类型为整数，按10进制输出，对应%llu
-x: 参数类型为整数，按16进制输出，a/b/c/d/e/f, 对应%llx
-p: 参数类型为指针，对应%p
-e: 参数类型为浮点数, 对应%e
-cs: 参数类型为C字符串指针，对应%s
-rs: 参数类型为&str, 对应%.*s
-rb: 参数类型为&[u8], 对应%.*s
-cc: 参数类型为ascii字符，实际转换为c的int类型，对应%c
-rc: 参数类型为RUST的char，unicode scalar value，对应%s
+d: print int as digits, see %lld
+u: print int as hexdecimals, see %llu
+x: print int as hexdecimals a/b/c/d/e/f, see %llx
+p: print pointer，see %p
+e: print floating point numbers, see %e
+cs: print C string pointers, see %s
+rs: print Rust string &str, see %.*s
+rb: print Rust slice &[u8], see %.*s
+cc: print ASCII char into int type in C, see %c
+rc: print Rust char into unicode scalar value, see %s
 ```
 
-转换后的C函数定为dprintf(int fd, const char\* format, ...); 这个函数需要在用户的代码中实现。第一个参数fd，1对应stdout，2对应stderr。
+The converted C function has the spec `dprintf(int fd, const char* format, ...);`,
+which needs to be implemented in user's code. The value of the first argument `fd`,
+1 stands for `stdout`, 2 stands for `stderr`.
 
-cfmt提供如下几个宏：
+`cfmt` provides the following macros:
 ```rust
-//输出到stdout, 转换为dprintf(1, format, ...)
+// print to stdout, converted into dprintf(1, format, ...)
 cprint!(format: &'static str, ...);
 print!(format: &'static str, ...);
-//相对cprint!自动添加\n, 转换为dprintf(1, format "\n", ...)
+// append \n to cprint!, converted into dprintf(1, format "\n", ...)
 cprintln!(format: &'static str, ...);
 println!(format: &'static str, ...);
-//输出到stderr, 转换为dprintf(2, format, ...)
+// print to stderr, converted into dprintf(2, format, ...)
 ceprint!(format: &'static str, ...);
 eprint!(format: &'static str, ...);
-//相对ceprint!自动添加\n, 转换为dprintf(2, format "\n", ...)
+// append \n to ceprint!, converted into dprintf(2, format "\n", ...)
 ceprintln!(format: &'static str, ...);
 eprintln!(format: &'static str, ...);
 ```
 
-在RUST中的使用方法如下：
+The usage in Rust is shown as follows:
 
 ```rust
 #[link(name = "c")]
@@ -52,7 +56,7 @@ fn main() {
 }
 ```
 
-cargo expand的代码如下：
+After `cargo expand`, the above code becomes:
 
 ```rust
 #[link(name = "c")]
@@ -84,11 +88,12 @@ fn main() {
 }
 ```
 
-## 方案分析
+## Design Rationale
 
-RUST/C混合应用场景，RUST的格式化输出无条件转化为C的格式化输出接口，同时还不能完全消除对Display/Debug trait的依赖，这样RUST的格式化输出的开销可以全部消除，实现方案可以做到空间最优。
+While mixing Rust/C, unconditionally convert Rust's formated prints into C's API could completely remove the dependencies on
+Display/Debug traits, thereby eliminating the overhead of Rust formatted printing and achieving the optimal size.
 
-最理想的情况是，格式化输出的格式完全遵循RUST的定义如下所示：
+Ideally, the formatted print follows the spec in Rust as follows:
 
 ```rust
 fn main() {
@@ -97,7 +102,7 @@ fn main() {
 }
 ```
 
-经过过程宏cprintln处理之后，能变换为下面的代码：
+After expanding with the proc macro `cprintln!`, it becomes
 
 ```rust
 #[link(name = "c")]
@@ -113,12 +118,14 @@ fn main() {
 }
 ```
 
-要实现上面的转化，对过程宏有几个要求：
-1. RUST的字符串需要转化为C的字符串，必须增加\0结束符。
-2. RUST的过程宏需要识别出参数的类型宽度，不同宽度对应不同的C格式化字符，比如%d还是%lld
-3. RUST的过程宏还需要识别出参数的类型，如果是字符串，格式化字符中需要指定长度信息，%.\*s, 字符参数也需要一分为二，分别传递长度和\*const u8的指针。
+To implement the above, we need to have the proc macro satisfy the following requirements:
+1. RUST strings need to be ended with \0 in C;
+2. RUST argument size needs to be recognized by the proc macro so as to determine which C format to use, e.g., whether it is `%d` or `%lld`;
+3. RUST argument type needs to be recognized by the proc macro: the format needs to specify the length if it is a string, and
+   separately treating char arguments with an `*const u8` pointer with length。
 
-很遗憾，RUST过程宏并非无所不能。过程宏工作的时候，类型的命名解析还未最终完成，意味着对于下面的场景，无法识别出这是一个i32类型：
+Unfortunately, proc macros cannot achieve all that. When the are expanded, the parsing has not been done to determine the variable's types.
+For example, the i32 type in the following code:
 
 ```rust
 type my_i32 = i32;
@@ -126,11 +133,18 @@ let i: my_i32 = 100;
 cprintln!("i32 = {}", i);
 ```
 
-过程宏中，最多知道i的类型是my_i32，并不知道my_i32和i32是等价的。实际场景还会更复杂，参数可能是一个变量，也可能是一个函数调用的返回值。因此期望过程宏能够识别出具体参数的类型，基于类型做转化处理是无法实现的。
+At best, the proc macro can tell the type of `i` is `my_i32`, without knowing that actually `my_i32` is equivalent to `i32`.
 
-在RUST的原生实现中，定义Display/Debug Trait，也就解决了类型问题，即将任何类型都归一到Display/Debug Trait，基于这个trait的接口进行转化处理。
+In fact, in more complex scenarios, the arguments could be variables, or the value returned from a function call. Therefore, 
+it is unrealistic to expect that the proc macro could recognize the type of certain arguments, making it impossible to realize the above ideal
+solution.
 
-我们的目标是期望彻底消除Display/Debug Trait的代码，不能依赖一个统一的Trait定义，那么只能同C的思路，通过格式化字符来区分参数类型。rust的原生实现中也是通过特殊的格式化字符'?'来区分是基于Display Trait还是Debug Trait的接口实现输出，一样的原理。如下所示：
+The current implementation of Rust defines `Display/Debug` traits in response to the type problem by unifying all types into
+Display/Debug trait, and perform the conversion based on the interfaces of such traits.
+
+Our objective is to further eliminate the needs of `Display/Debug` traits, so we have to determine argument types based on the format string.
+In fact, Rust also use special characters such as '?' to determine whether a Display or a Debug trait is to be used. o
+Following the same principle, we could leverage on the format strings as follows:
 
 ```rust
 fn main() {
@@ -138,7 +152,14 @@ fn main() {
 }
 ```
 
-过程宏中基于格式化字符来实现对应参数的转化处理是可行的。不过上面这种方式有个问题，就是格式化字符中同时也指定了参数宽度信息，比如{:x}对应C的int类型，而{:lld}对应C的long long int类型，这种方式要求使用者必须保证格式化字符和参数的宽度必须一致，如果不一致可能导致非法地址访问等错误，降低了代码的安全性。考虑到这一点，做一个简化，格式化字符中只定义数据类型，不定义数据宽度，实际上是统一数据类型为C的long long int和double类型。如下所示：
+This makes it feasible to rely on proc macros. However, there is a problem in
+the above, that is, the format string also restricts the argument sizes. For
+example, `{:x}` is `int`, while `{:lld}` is `long long int` in C. It requires
+the programmer to guarantee the consistency between the format string and the
+argument size. Otherwise, invalid address access could lower the safety of
+code. In this regard, we need to provide a simplification, whereby the format
+string only defines data type, whitout specifying data size, which in effect
+unify the data types into `long long int` or `double` in C.
 
 ```rust
 fn main() {
@@ -146,7 +167,7 @@ fn main() {
 }
 ```
 
-过程宏转化后的代码为：
+As a result, the proc macro generates the following code:
 
 ```rust
 fn main() {
@@ -156,17 +177,18 @@ fn main() {
 }
 ```
 
-通过这种方式，RUST代码的安全性大大提高，如果参数类型传递错误，编译就会失败，不会隐藏问题。
+As such, the safety of Rust code could be ensured: if a wrong argument type is passed on, the compiler would reject it rather than hiding the problem.
 
-### 字符串的特殊之处
+### Special treatment of string
 
-对于字符串，因为需要传递长度，从RUST的一个参数，转换为2个参数，这里有一个副作用。如下所示：
+For strings, the length information has to be passed on, therefore an argument in Rust will to converted into two, causing some side effect.
+This is illustrated below:
 
 ```rust
 cprintln!("str = {:s}", get_str());
 ```
 
-转换后的代码如下：
+The generated code reads as follows:
 
 ```rust
 unsafe {
@@ -174,17 +196,22 @@ unsafe {
 }
 ```
 
-注意到get_str()被调用了2次，这和C的宏可能出现的副作用类似，多次调用对系统的影响是未知的，需要避免。
+Note that `get_str()` has been invoked twice, which is like side effect in macro of C where the effect is unknown when the macro
+is to be expanded more than once. This problem needs to be avoided.
 
-简单的情况，作为使用注意事项，要求RUST程序员保证对于字符串的格式化输出，不能传递返回字符串的函数调用，而必须是一个变量，这降低了易用性。
+In simple terms, the programmer needs to guarantee the string format output cannot pass function calls that return strings instead of
+variables. That would reduce usability.
 
-最好的方式是过程宏中 能够判断出参数是否是函数调用，如果是，则自动生成一个临时变量。也可以无条件的将所有字符串参数定义为临时变量，这样如果传递的字符串类型如果不是&str则会报告明确的错误信息。
+A best choice is to judge whether the argument is a function call. If so, generate a temporary variable. Alternatively, define every string argument
+as a temporary variable unconditionally, and report errors explicitly when the string argument is not a `&str`. 
 
-### rust char的特殊处理
+### Special treatment of Rust char
 
-rust char是unicode编码，格式化输出需要基于char::encode_utf8转换为作为字符串输出，但是char::encode_utf8的调用自动引入core::fmt相关的很多符号，导致二进制大小增大。
+Rust char is encoded in unicode, its format output needs to be based on `char::encode_utf8` to convert into strings; however,
+the use of `char::encode_utf8` would automatically introduce symbols of `core::fmt`, causing the bloat of binary size.
 
-为了消除自动引入的core::fmt相关代码，对于rust char需要自己实现转换功能，如下所示是第一个版本：
+To avoid introducing `core::fmt` crate, we need to implement the conversion for Rust `char`. 
+The first version of implementation is shown below:
 
 ```rust
 pub fn encode_utf8(c: char, buf: &mut [u8]) -> &[u8] {
@@ -203,7 +230,7 @@ pub fn encode_utf8(c: char, buf: &mut [u8]) -> &[u8] {
 }
 ```
 
-上面的实现，虽然没有显示引入任何core::fmt相关的代码，但生成之后的二进制，仍然会引入core::fmt相关的代码：
+Although nothing is done explicitly, the binary still include related symbols in `core::fmt`:
 
 ```bash
 h00339793@DESKTOP-MOPEH6E:~/working/rust/orion/main$ nm target/debug/orion | grep fmt
@@ -215,7 +242,8 @@ h00339793@DESKTOP-MOPEH6E:~/working/rust/orion/main$ nm target/debug/orion | gre
 h00339793@DESKTOP-MOPEH6E:~/working/rust/orion/main$
 ```
 
-这些符号应该是因为通过动态下标访问数组可能越界，而rust在越界处理过程中会引入core::fmt相关的代码。为了消除这部分代码空间，必须全部消除动态数组下标访问，最终确定的实现版本如下：
+These symbols are added to check the array indices dynamically in Rust to prevent buffer overflow.
+To eliminate such code in binary, we need to disable all array index checks, which become the following:
 
 ```rust
 pub fn encode_utf8(c: char, buf: &mut [u8; 5]) -> *const u8 {
@@ -243,4 +271,4 @@ pub fn encode_utf8(c: char, buf: &mut [u8; 5]) -> *const u8 {
 }
 ```
 
-这也提醒我们，业务层代码需要**避免动态下标访问数组元素**, 避免自动引入core::fmt相关的代码。
+This reminds us, that use code needs to **avoid the use of dynamic check of array indices**, in order to avoid introducing `core::fmt` dependency.
