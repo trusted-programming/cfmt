@@ -27,15 +27,28 @@ cfmt提供如下几个宏：
 //输出到stdout, 转换为dprintf(1, format, ...)
 cprint!(format: &'static str, ...);
 print!(format: &'static str, ...);
+
 //相对cprint!自动添加\n, 转换为dprintf(1, format "\n", ...)
 cprintln!(format: &'static str, ...);
 println!(format: &'static str, ...);
+
 //输出到stderr, 转换为dprintf(2, format, ...)
 ceprint!(format: &'static str, ...);
 eprint!(format: &'static str, ...);
+
 //相对ceprint!自动添加\n, 转换为dprintf(2, format "\n", ...)
 ceprintln!(format: &'static str, ...);
 eprintln!(format: &'static str, ...);
+
+//输出到buf, 转换为snprintf(buf.as_byte().as_ptr(), buf.len(), format, ...)
+csprint!(buf: &mut str, format: &'static str, ...)
+sprint!(buf: &mut str, format: &'static str, ...)
+
+//输出到buf, 转换为snprintf(buf.as_ptr(), buf.len(), format, ...)
+cbprint!(buf: &mut [u8], format: &'static str, ...)
+bprint!(buf: &mut [u8], format: &'static str, ...)
+
+
 ```
 
 在RUST中的使用方法如下：
@@ -44,11 +57,18 @@ eprintln!(format: &'static str, ...);
 #[link(name = "c")]
 extern "C" {
 	fn dprintf(fd: i32, format: *const u8, ...) -> i32;
+    fn snprintf(buf: *mut u8, len: usize, format: *const u8, ...) -> i32;
 }
 fn main() {
-    let cstr = b"cstr\0".as_ptr();
-    cfmt::cprintln!("d = {:d} u = {:u} x = {:x} e = {:e} p = {:p} cstr = {:cs} str = {:rs} bytes = {:rb}",
-        100, 200, 300, 400.0, cstr, cstr, "rust &str", b"rust bytes");
+    let s = vec![b'\0'; 100];
+    let s = &mut String::from_utf8(s).unwrap();
+    cfmt::sprint!(s, "sprint({:rs})", "hello snprintf");
+
+    let b = &mut [0_u8; 100];
+    cfmt::bprint!(b, "bprint({:rs})", "hello snprintf");
+
+    cfmt::println!("d = {:d} u = {:u} x = {:x} e = {:e} p = {:p} cstr = {:cs} str = {:rs} bytes = {:rb}",
+        100, 200, 300, 400.0, b, b, s, b);
 }
 ```
 
@@ -58,12 +78,37 @@ cargo expand的代码如下：
 #[link(name = "c")]
 extern "C" {
 	fn dprintf(fd: i32, format: *const u8, ...) -> i32;
+    fn snprintf(buf: *mut u8, len: usize, format: *const u8, ...) -> i32;
 }
 fn main() {
-    let cstr = b"cstr\0".as_ptr();
+    let s = ::alloc::vec::from_elem(b'\0', 100);
+    let s = &mut String::from_utf8(s).unwrap();
     unsafe {
-        let _s_6_: &str = "rust &str";
-        let _s_7_: &[u8] = b"rust bytes";
+        let _cfmt_buf: &mut str = s;
+        let _cfmt_0_: &str = "hello snprintf";
+        snprintf(
+            _cfmt_buf.as_bytes_mut().as_mut_ptr(),
+            _cfmt_buf.len() as usize,
+            "sprint(%.*s)\0".as_bytes().as_ptr(),
+            _cfmt_0_.len() as i32,
+            _cfmt_0_.as_bytes().as_ptr(),
+        );
+    };
+    let b = &mut [0_u8; 100];
+    unsafe {
+        let _cfmt_buf: &mut [u8] = b;
+        let _cfmt_0_: &str = "hello snprintf";
+        snprintf(
+            _cfmt_buf.as_mut_ptr(),
+            _cfmt_buf.len() as usize,
+            "bprint(%.*s)\0".as_bytes().as_ptr(),
+            _cfmt_0_.len() as i32,
+            _cfmt_0_.as_bytes().as_ptr(),
+        );
+    };
+    unsafe {
+        let _cfmt_6_: &str = s;
+        let _cfmt_7_: &[u8] = b;
         dprintf(
             1i32,
             "d = %lld u = %llu x = %llx e = %e p = %p cstr = %s str = %.*s bytes = %.*s\n\0"
@@ -73,12 +118,12 @@ fn main() {
             200 as i64,
             300 as i64,
             400.0 as f64,
-            cstr as *const _,
-            cstr as *const _,
-            _s_6_.len() as i32,
-            _s_6_.as_bytes().as_ptr(),
-            _s_7_.len() as i32,
-            _s_7_.as_ptr(),
+            b as *const _,
+            b as *const _,
+            _cfmt_6_.len() as i32,
+            _cfmt_6_.as_bytes().as_ptr(),
+            _cfmt_7_.len() as i32,
+            _cfmt_7_.as_ptr(),
         );
     };
 }

@@ -57,6 +57,49 @@ pub fn ceprintln(input: TokenStream) -> TokenStream {
     cprintf(input, true, 2)
 }
 
+#[proc_macro]
+pub fn csprint(input: TokenStream) -> TokenStream {
+    csnprintf(input, true)
+}
+
+#[proc_macro]
+pub fn sprint(input: TokenStream) -> TokenStream {
+    csnprintf(input, true)
+}
+
+#[proc_macro]
+pub fn cbprint(input: TokenStream) -> TokenStream {
+    csnprintf(input, false)
+}
+
+#[proc_macro]
+pub fn bprint(input: TokenStream) -> TokenStream {
+    csnprintf(input, false)
+}
+
+fn csnprintf(input: TokenStream, is_str: bool) -> TokenStream {
+    let input = parse_macro_input!(input as BufInput);
+    let mut buf_format = input.input.format.value();
+    buf_format.push('\0');
+
+    let buf = &input.buf;
+    let ident = syn::Ident::new("_cfmt_buf", buf.span());
+    let mut buf_vars = vec![];
+    let mut buf_args = vec![];
+    if is_str {
+        buf_vars.push(quote!(let #ident: &mut str = #buf;));
+        buf_args.push(quote!(#ident.as_bytes_mut().as_mut_ptr()));
+    } else {
+        buf_vars.push(quote!(let #ident: &mut [u8] = #buf;));
+        buf_args.push(quote!(#ident.as_mut_ptr()));
+    }
+    buf_args.push(quote!(#ident.len() as usize));
+    cformat(&buf_format, &input.input, |vars, args, format| {
+        let tokens = quote!{ unsafe { #(#buf_vars)* #(#vars)* snprintf( #(#buf_args),*, #format.as_bytes().as_ptr(), #(#args),*); } };
+        tokens.into()
+    })
+}
+
 fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
     let input = parse_macro_input!(input as Input);
     let mut format = input.format.value();
@@ -66,8 +109,16 @@ fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
     } else {
         format.push('\0');
     }
+    cformat(&format, &input, |vars, args, format| {
+        let tokens = quote!{ unsafe { #(#vars)* dprintf( #fd, #format.as_bytes().as_ptr(), #(#args),*); } };
+        tokens.into()
+    })
+}
 
-    let pieces = match parse(&format, input.format.span()) {
+fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream 
+    where F: Fn(&Vec<proc_macro2::TokenStream>, &Vec<proc_macro2::TokenStream>, &str) -> TokenStream
+{
+    let pieces = match parse(format, input.format.span()) {
         Err(e) => return e.to_compile_error().into(),
         Ok(pieces) => pieces,
     };
@@ -82,7 +133,7 @@ fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
     }
 
     let literal = gen_literal(&pieces);
-    let mut exprs = vec![];
+    let mut args = vec![];
     let mut vars = vec![];
 
     let mut i = 0;
@@ -97,13 +148,13 @@ fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
             Piece::Str | Piece::Bytes => {
                 let name = format!("_cfmt_{}_", i);
                 let ident = syn::Ident::new(&name, arg.span());
-                exprs.push(quote!(#ident.len() as i32));
+                args.push(quote!(#ident.len() as i32));
                 if matches!(piece, Piece::Str) {
                     vars.push(quote!(let #ident: &str = #arg;));
-                    exprs.push(quote!(#ident.as_bytes().as_ptr()));
+                    args.push(quote!(#ident.as_bytes().as_ptr()));
                 } else {
                     vars.push(quote!(let #ident: &[u8] = #arg;));
-                    exprs.push(quote!(#ident.as_ptr()));
+                    args.push(quote!(#ident.as_ptr()));
                 }
             },
             Piece::Char => {
@@ -113,26 +164,25 @@ fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
                     let mut #ident = [0_u8; 5];
                     let #ident = cfmt::encode_utf8(#arg, &mut #ident);
                 ));
-                exprs.push(quote!(#ident));
+                args.push(quote!(#ident));
             },
             Piece::CChar => {
-                exprs.push(quote!(#arg as i32));
+                args.push(quote!(#arg as i32));
             },
             Piece::CStr | Piece::Pointer => {
-                exprs.push(quote!(#arg as *const _));
+                args.push(quote!(#arg as *const _));
             },
             Piece::Double => {
-                exprs.push(quote!(#arg as f64));
+                args.push(quote!(#arg as f64));
             },
             _ => {
-                exprs.push(quote!(#arg as i64));
+                args.push(quote!(#arg as i64));
             }
         }
         i += 1;
     }
 
-    let tokens = quote!{ unsafe { #(#vars)* dprintf( #fd, #literal.as_bytes().as_ptr(), #(#exprs),*); } };
-    tokens.into()
+    f(&vars, &args, &literal)
 }
 
 fn gen_literal(pieces: &Vec<Piece>) -> String {
@@ -178,6 +228,23 @@ impl Parse for Input {
                 args:   Punctuated::parse_terminated(input)?,
             })
         }
+    }
+}
+
+struct BufInput {
+    buf: Expr,
+    input: Input,
+}
+
+impl Parse for BufInput {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
+        let buf = input.parse()?;
+        let _: Option<Token![,]> = input.parse()?;
+        let input = Input::parse(input)?;
+        Ok(BufInput {
+            buf: buf,
+            input: input,
+        })
     }
 }
 

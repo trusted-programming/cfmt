@@ -2,7 +2,8 @@
 
 pub use cfmt_macros::{
     print, println, eprint, eprintln,
-    cprint, cprintln, ceprint, ceprintln
+    cprint, cprintln, ceprint, ceprintln,
+    csprint, cbprint, sprint, bprint
 };
 
 #[inline(never)]
