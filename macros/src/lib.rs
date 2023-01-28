@@ -5,6 +5,7 @@
 //
 extern crate proc_macro;
 use core::mem;
+use std::time::{ SystemTime };
 use std::borrow::Cow;
 use proc_macro2::{ Span };
 use proc_macro::TokenStream;
@@ -83,7 +84,7 @@ fn csnprintf(input: TokenStream, is_str: bool) -> TokenStream {
     buf_format.push('\0');
 
     let buf = &input.buf;
-    let ident = syn::Ident::new("_cfmt_buf", buf.span());
+    let ident = cfmt_ident(9999, buf.span());
     let mut buf_vars = vec![];
     let mut buf_args = vec![];
     if is_str {
@@ -115,6 +116,11 @@ fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
     })
 }
 
+fn cfmt_ident(idx: usize, span: Span) -> syn::Ident {
+    let name = format!("_cfmt_{}_{}", idx, SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs());
+    syn::Ident::new(&name, span)
+}
+
 fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream 
     where F: Fn(&Vec<proc_macro2::TokenStream>, &Vec<proc_macro2::TokenStream>, &str) -> TokenStream
 {
@@ -136,7 +142,7 @@ fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream
     let mut args = vec![];
     let mut vars = vec![];
 
-    let mut i = 0;
+    let mut i: usize = 0;
     for piece in pieces {
         if matches!(piece, Piece::Literal(_)) {
             continue;
@@ -146,8 +152,7 @@ fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream
             Piece::Literal(_) => {
             },
             Piece::Str | Piece::Bytes => {
-                let name = format!("_cfmt_{}_", i);
-                let ident = syn::Ident::new(&name, arg.span());
+                let ident = cfmt_ident(i, arg.span());
                 args.push(quote!(#ident.len() as i32));
                 if matches!(piece, Piece::Str) {
                     vars.push(quote!(let #ident: &str = #arg;));
@@ -158,8 +163,7 @@ fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream
                 }
             },
             Piece::Char => {
-                let name = format!("_cfmt_{}_", i);
-                let ident = syn::Ident::new(&name, arg.span());
+                let ident = cfmt_ident(i, arg.span());
                 vars.push(quote!(
                     let mut #ident = [0_u8; 5];
                     let #ident = cfmt::encode_utf8(#arg, &mut #ident);
