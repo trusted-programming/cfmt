@@ -1,4 +1,4 @@
-# cfmt - Format output without Rust code segment in binary
+# cfmt - Format output without Rust code segment in binary to reduce the ultimate binary size
 
 Restricted on embedded systems, the goal of `cfmt` is to reduce the ultimate
 binary size. With `cfmt`, one could avoid the uses of Rust format print

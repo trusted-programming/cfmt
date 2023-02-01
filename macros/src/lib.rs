@@ -1,8 +1,10 @@
-//
-// To parse format strings, `parse`/`unescape` from `ufmt` are reused here.
-//
-// 实现过程参考了UFMT的实现，重用了其部分代码，parse/unescape，涉及到格式化字符串的解析
-//
+//!
+//! cfmt-macros
+//! To parse format strings, `parse`/`unescape` from `ufmt` are reused here.
+//!
+//! 实现过程参考了UFMT的实现，重用了其部分代码，parse/unescape，涉及到格式化字符串的解析
+//!
+
 extern crate proc_macro;
 use core::mem;
 use std::time::{ SystemTime };

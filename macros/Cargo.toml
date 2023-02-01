@@ -1,4 +1,8 @@
 [package]
+authors = ["Han Tingjun <hantingjun@huawei.com>", "Yijun Yu <yijun.yu@huawei.com>"]
+description = "Format output without Rust code segment in binary to reduce the ultimate binary size"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/trusted-programming/cfmt"
 name = "cfmt-macros"
 version = "0.1.0"
 edition = "2021"
