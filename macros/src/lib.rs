@@ -168,7 +168,7 @@ fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream
                 let ident = cfmt_ident(i, arg.span());
                 vars.push(quote!(
                     let mut #ident = [0_u8; 5];
-                    let #ident = cfmt::encode_utf8(#arg, &mut #ident);
+                    let #ident = orion_cfmt::encode_utf8(#arg, &mut #ident);
                 ));
                 args.push(quote!(#ident));
             },

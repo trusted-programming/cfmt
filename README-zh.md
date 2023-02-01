@@ -62,12 +62,12 @@ extern "C" {
 fn main() {
     let s = vec![b'\0'; 100];
     let s = &mut String::from_utf8(s).unwrap();
-    cfmt::sprint!(s, "sprint({:rs})", "hello snprintf");
+    orion_cfmt::sprint!(s, "sprint({:rs})", "hello snprintf");
 
     let b = &mut [0_u8; 100];
-    cfmt::bprint!(b, "bprint({:rs})", "hello snprintf");
+    orion_cfmt::bprint!(b, "bprint({:rs})", "hello snprintf");
 
-    cfmt::println!("d = {:d} u = {:u} x = {:x} e = {:e} p = {:p} cstr = {:cs} str = {:rs} bytes = {:rb}",
+    orion_cfmt::println!("d = {:d} u = {:u} x = {:x} e = {:e} p = {:p} cstr = {:cs} str = {:rs} bytes = {:rb}",
         100, 200, 300, 400.0, b, b, s, b);
 }
 ```

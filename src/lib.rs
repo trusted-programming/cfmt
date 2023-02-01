@@ -12,21 +12,21 @@
 //!     fn dprintf(fd: i32, format: *const u8, ...) -> i32;
 //!     fn snprintf(buf: *mut u8, size: usize, format: *const u8, ...) -> i32;
 //! }
-//! cfmt::println!("hello world");
-//! cfmt::println!("signed decimal {:d}", -1);
-//! cfmt::println!("unsigned decimal {:u}", -1);
-//! cfmt::println!("hexadecimal {:x}", -1);
-//! cfmt::println!("pointer {:p}", &1);
-//! cfmt::println!("float {:e}", -1.0);
-//! cfmt::println!("rust &str {:rs}", "hello world");
-//! cfmt::println!("rust &[u8] {:rb}", b"hello world");
-//! cfmt::println!("rust char {:rc}", '中');
-//! cfmt::println!("c str {:cs}", b"hello world\0");
-//! cfmt::println!("c char {:cc}", b'0');
+//! orion_cfmt::println!("hello world");
+//! orion_cfmt::println!("signed decimal {:d}", -1);
+//! orion_cfmt::println!("unsigned decimal {:u}", -1);
+//! orion_cfmt::println!("hexadecimal {:x}", -1);
+//! orion_cfmt::println!("pointer {:p}", &1);
+//! orion_cfmt::println!("float {:e}", -1.0);
+//! orion_cfmt::println!("rust &str {:rs}", "hello world");
+//! orion_cfmt::println!("rust &[u8] {:rb}", b"hello world");
+//! orion_cfmt::println!("rust char {:rc}", '中');
+//! orion_cfmt::println!("c str {:cs}", b"hello world\0");
+//! orion_cfmt::println!("c char {:cc}", b'0');
 //!
 //! let mut buf = [0_u8; 100];
-//! cfmt::bprint!(&mut buf, "snprintf rust string {:rs}", "hello world");
-//! cfmt::println!("c str {:cs}", &buf);
+//! orion_cfmt::bprint!(&mut buf, "snprintf rust string {:rs}", "hello world");
+//! orion_cfmt::println!("c str {:cs}", &buf);
 //!
 
 #![no_std]
