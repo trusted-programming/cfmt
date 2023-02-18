@@ -4,7 +4,7 @@ description = "Format output without Rust code segment in binary to reduce the u
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/trusted-programming/cfmt"
 readme = "README.md"
-name = "orion-cfmt"
+name = "orion_cfmt"
 version = "0.1.1"
 edition = "2021"
 
