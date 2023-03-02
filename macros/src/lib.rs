@@ -176,7 +176,7 @@ fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream
                 args.push(quote!((#arg) as i32));
             },
             Piece::CStr | Piece::Pointer => {
-                args.push(quote!((#arg) as *const _));
+                args.push(quote!((#arg) as *const _ as *const u8));
             },
             Piece::Double => {
                 args.push(quote!((#arg) as f64));

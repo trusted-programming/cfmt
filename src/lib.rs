@@ -63,3 +63,22 @@ pub fn encode_utf8(c: char, buf: &mut [u8; 5]) -> *const u8 {
     return buf as *const u8;
 }
 
+#[cfg(test)]
+mod test {
+    extern crate std;
+    use std::format;
+    #[link(name = "c")]
+    extern "C" {
+        fn snprintf(buf: *mut u8, len: usize, format: *const u8, ...) -> i32;
+    }
+
+    #[test]
+    fn test_fat_pointer() {
+        let mut buf = [0_u8; 100];
+        let s = "hello";
+        let n = s as *const _ as *const u8 as usize;
+        super::bprint!(&mut buf[0..], "{:p} {:p}", s, s);
+        let s = format!("0x{:x} 0x{:x}\0", n, n);
+        assert_eq!(s.as_bytes(), &buf[0..s.len()]);
+    }
+}
