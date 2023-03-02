@@ -11,7 +11,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cfmt-macros = { path = "macros", version = "0.2.0" }
+cfmt-macros = { path = "macros", version = "0.2.1" }
 
 [workspace]
 members = [
