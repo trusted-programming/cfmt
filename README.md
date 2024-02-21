@@ -1,7 +1,9 @@
-# cfmt - Format output without Rust code segment in binary to reduce the ultimate binary size
+# hifmt - Format output without Rust code segment in binary to reduce the ultimate binary size
 
-Restricted on embedded systems, the goal of `cfmt` is to reduce the ultimate
-binary size. With `cfmt`, one could avoid the uses of Rust format print
+Rename `orion_cfmt` to `hifmt`.
+
+Restricted on embedded systems, the goal of `hifmt` is to reduce the ultimate
+binary size. With `hifmt`, one could avoid the uses of Rust format print
 function by converting them into formatted print in C. 
 
 ## Usage
@@ -26,7 +28,7 @@ The converted C function has the spec `dprintf(int fd, const char* format, ...);
 which needs to be implemented in user's code. The value of the first argument `fd`,
 1 stands for `stdout`, 2 stands for `stderr`.
 
-`cfmt` provides the following macros:
+`hifmt` provides the following macros:
 ```rust
 // print to stdout, converted into dprintf(1, format, ...)
 cprint!(format: &'static str, ...);
@@ -64,12 +66,12 @@ extern "C" {
 fn main() {
     let s = vec![b'\0'; 100];
     let s = &mut String::from_utf8(s).unwrap();
-    orion_cfmt::sprint!(s, "sprint({:rs})", "hello snprintf");
+    hifmt::sprint!(s, "sprint({:rs})", "hello snprintf");
 
     let b = &mut [0_u8; 100];
-    orion_cfmt::bprint!(b, "bprint({:rs})", "hello snprintf");
+    hifmt::bprint!(b, "bprint({:rs})", "hello snprintf");
 
-    orion_cfmt::println!("d = {:d} u = {:u} x = {:x} e = {:e} p = {:p} cstr = {:cs} str = {:rs} bytes = {:rb}",
+    hifmt::println!("d = {:d} u = {:u} x = {:x} e = {:e} p = {:p} cstr = {:cs} str = {:rs} bytes = {:rb}",
         100, 200, 300, 400.0, b, b, s, b);
 }
 ```
@@ -79,54 +81,96 @@ After cargo expand, the above code becomes:
 ```rust
 #[link(name = "c")]
 extern "C" {
-	fn dprintf(fd: i32, format: *const u8, ...) -> i32;
-	fn snprintf(buf: *mut u8, len: usize, format: *const u8, ...) -> i32;
+    fn dprintf(fd: i32, format: *const u8, ...) -> i32;
+    fn snprintf(buf: *mut u8, len: usize, format: *const u8, ...) -> i32;
 }
 fn main() {
     let s = ::alloc::vec::from_elem(b'\0', 100);
     let s = &mut String::from_utf8(s).unwrap();
-    unsafe {
-        let _cfmt_buf: &mut str = s;
-        let _cfmt_0_: &str = "hello snprintf";
-        snprintf(
-            _cfmt_buf.as_bytes_mut().as_mut_ptr(),
-            _cfmt_buf.len() as usize,
-            "sprint(%.*s)\0".as_bytes().as_ptr(),
-            _cfmt_0_.len() as i32,
-            _cfmt_0_.as_bytes().as_ptr(),
-        );
+    {
+        {
+            let _hifmt_1: &str = "hello snprintf";
+        }
+        let _hifmt_0: &mut str = s;
+        let _hifmt_1: &str = "hello snprintf";
+        unsafe {
+            snprintf(
+                _hifmt_0.as_bytes_mut().as_mut_ptr(),
+                _hifmt_0.len() as usize,
+                "sprint(%.*s)\0".as_bytes().as_ptr(),
+                _hifmt_1.len() as i32,
+                _hifmt_1.as_bytes().as_ptr(),
+            );
+        }
     };
     let b = &mut [0_u8; 100];
-    unsafe {
-        let _cfmt_buf: &mut [u8] = b;
-        let _cfmt_0_: &str = "hello snprintf";
-        snprintf(
-            _cfmt_buf.as_mut_ptr(),
-            _cfmt_buf.len() as usize,
-            "bprint(%.*s)\0".as_bytes().as_ptr(),
-            _cfmt_0_.len() as i32,
-            _cfmt_0_.as_bytes().as_ptr(),
-        );
+    {
+        {
+            let _hifmt_1: &str = "hello snprintf";
+        }
+        let _hifmt_0: &mut [u8] = b;
+        let _hifmt_1: &str = "hello snprintf";
+        unsafe {
+            snprintf(
+                _hifmt_0.as_mut_ptr(),
+                _hifmt_0.len() as usize,
+                "bprint(%.*s)\0".as_bytes().as_ptr(),
+                _hifmt_1.len() as i32,
+                _hifmt_1.as_bytes().as_ptr(),
+            );
+        }
     };
-    unsafe {
-        let _cfmt_6_: &str = s;
-        let _cfmt_7_: &[u8] = b;
-        dprintf(
-            1i32,
-            "d = %lld u = %llu x = %llx e = %e p = %p cstr = %s str = %.*s bytes = %.*s\n\0"
-                .as_bytes()
-                .as_ptr(),
-            100 as i64,
-            200 as i64,
-            300 as i64,
-            400.0 as f64,
-            b as *const _,
-            b as *const _,
-            _cfmt_6_.len() as i32,
-            _cfmt_6_.as_bytes().as_ptr(),
-            _cfmt_7_.len() as i32,
-            _cfmt_7_.as_ptr(),
-        );
+    {
+        {
+            let _hifmt_1 = (100) as i64;
+        }
+        {
+            let _hifmt_2 = (200) as i64;
+        }
+        {
+            let _hifmt_3 = (300) as i64;
+        }
+        {
+            let _hifmt_4 = (400.0) as f64;
+        }
+        {
+            let _hifmt_5 = (b) as *const _ as *const u8;
+        }
+        {
+            let _hifmt_6 = (b) as *const _ as *const u8;
+        }
+        {
+            let _hifmt_7: &str = s;
+        }
+        {
+            let _hifmt_8: &[u8] = b;
+        }
+        let _hifmt_1 = (100) as i64;
+        let _hifmt_2 = (200) as i64;
+        let _hifmt_3 = (300) as i64;
+        let _hifmt_4 = (400.0) as f64;
+        let _hifmt_5 = (b) as *const _ as *const u8;
+        let _hifmt_6 = (b) as *const _ as *const u8;
+        let _hifmt_7: &str = s;
+        let _hifmt_8: &[u8] = b;
+        unsafe {
+            dprintf(
+                1i32,
+                "d = %lld u = %llu x = %llx e = %e p = %p cstr = %s str = %.*s bytes = %.*s\n\0"
+                    .as_bytes()
+                    .as_ptr(),
+                _hifmt_1,
+                _hifmt_2,
+                _hifmt_3,
+                _hifmt_4,
+                _hifmt_5,
+                _hifmt_6,
+                _hifmt_7.len() as i32,
+                _hifmt_7.as_bytes().as_ptr(),
+                _hifmt_8.len() as i32,
+                _hifmt_8.as_ptr(),
+            );
+        }
     };
 }
 ```

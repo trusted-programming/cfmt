@@ -2,8 +2,8 @@
 authors = ["Han Tingjun <hantingjun@huawei.com>", "Yijun Yu <yijun.yu@huawei.com>"]
 description = "Format output without Rust code segment in binary to reduce the ultimate binary size"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/trusted-programming/cfmt"
-name = "cfmt-macros"
+repository = "https://gitee.com/1467792822/hifmt"
+name = "hifmt-macros"
 version = "0.2.1"
 edition = "2021"
 

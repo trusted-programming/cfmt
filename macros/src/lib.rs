@@ -1,5 +1,5 @@
 //!
-//! cfmt-macros
+//! hifmt-macros
 //! To parse format strings, `parse`/`unescape` from `ufmt` are reused here.
 //!
 //! 实现过程参考了UFMT的实现，重用了其部分代码，parse/unescape，涉及到格式化字符串的解析
@@ -7,7 +7,6 @@
 
 extern crate proc_macro;
 use core::mem;
-use std::time::{ SystemTime };
 use std::borrow::Cow;
 use proc_macro2::{ Span };
 use proc_macro::TokenStream;
@@ -86,7 +85,7 @@ fn csnprintf(input: TokenStream, is_str: bool) -> TokenStream {
     buf_format.push('\0');
 
     let buf = &input.buf;
-    let ident = cfmt_ident(9999, buf.span());
+    let ident = hifmt_ident(0, buf.span());
     let mut buf_vars = vec![];
     let mut buf_args = vec![];
     if is_str {
@@ -97,8 +96,8 @@ fn csnprintf(input: TokenStream, is_str: bool) -> TokenStream {
         buf_args.push(quote!(#ident.as_mut_ptr()));
     }
     buf_args.push(quote!(#ident.len() as usize));
-    cformat(&buf_format, &input.input, |vars, args, format| {
-        let tokens = quote!{ unsafe { #(#buf_vars)* #(#vars)* snprintf( #(#buf_args),*, #format.as_bytes().as_ptr(), #(#args),*); } };
+    cformat(&buf_format, &input.input, |test_vars, vars, args, format| {
+        let tokens = quote!{ { #(#test_vars)* #(#buf_vars)* #(#vars)* unsafe { snprintf( #(#buf_args),*, #format.as_bytes().as_ptr(), #(#args),*); } } };
         tokens.into()
     })
 }
@@ -112,19 +111,19 @@ fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
     } else {
         format.push('\0');
     }
-    cformat(&format, &input, |vars, args, format| {
-        let tokens = quote!{ unsafe { #(#vars)* dprintf( #fd, #format.as_bytes().as_ptr(), #(#args),*); } };
+    cformat(&format, &input, |test_vars, vars, args, format| {
+        let tokens = quote!{ { #(#test_vars)* #(#vars)* unsafe { dprintf( #fd, #format.as_bytes().as_ptr(), #(#args),*); } } };
         tokens.into()
     })
 }
 
-fn cfmt_ident(idx: usize, span: Span) -> syn::Ident {
-    let name = format!("_cfmt_{}_{}", idx, SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs());
+fn hifmt_ident(idx: usize, span: Span) -> syn::Ident {
+    let name = format!("_hifmt_{}", idx);
     syn::Ident::new(&name, span)
 }
 
 fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream 
-    where F: Fn(&Vec<proc_macro2::TokenStream>, &Vec<proc_macro2::TokenStream>, &str) -> TokenStream
+    where F: Fn(&Vec<proc_macro2::TokenStream>, &Vec<proc_macro2::TokenStream>, &Vec<proc_macro2::TokenStream>, &str) -> TokenStream
 {
     let pieces = match parse(format, input.format.span()) {
         Err(e) => return e.to_compile_error().into(),
@@ -136,13 +135,14 @@ fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream
 
     if argc != required_argc {
         return parse::Error::new(input.format.span(),
-            &format!("format string required {} arguments but {} were supplied",
+            format!("format string required {} arguments but {} were supplied",
                 required_argc, argc)).to_compile_error().into();
     }
 
     let literal = gen_literal(&pieces);
     let mut args = vec![];
     let mut vars = vec![];
+    let mut test_vars = vec![];
 
     let mut i: usize = 0;
     for piece in pieces {
@@ -150,52 +150,62 @@ fn cformat<F>(format: &str, input: &Input, f: F) -> TokenStream
             continue;
         }
         let arg = &input.args[i];
+        i += 1;
+        let ident = hifmt_ident(i, arg.span());
         match piece {
             Piece::Literal(_) => {
             },
             Piece::Str | Piece::Bytes => {
-                let ident = cfmt_ident(i, arg.span());
                 args.push(quote!(#ident.len() as i32));
                 if matches!(piece, Piece::Str) {
+                    test_vars.push(quote!({ let #ident: &str = #arg; }));
                     vars.push(quote!(let #ident: &str = #arg;));
                     args.push(quote!(#ident.as_bytes().as_ptr()));
                 } else {
+                    test_vars.push(quote!({ let #ident: &[u8] = #arg; }));
                     vars.push(quote!(let #ident: &[u8] = #arg;));
                     args.push(quote!(#ident.as_ptr()));
                 }
             },
             Piece::Char => {
-                let ident = cfmt_ident(i, arg.span());
+                test_vars.push(quote!({ let #ident = (#arg) as i64; }));
                 vars.push(quote!(
                     let mut #ident = [0_u8; 5];
-                    let #ident = orion_cfmt::encode_utf8(#arg, &mut #ident);
+                    let #ident = ::hifmt::encode_utf8(#arg, &mut #ident);
                 ));
                 args.push(quote!(#ident));
             },
             Piece::CChar => {
-                args.push(quote!((#arg) as i32));
+                test_vars.push(quote!({ let #ident = (#arg) as i32; }));
+                vars.push(quote!(let #ident = (#arg) as i32;));
+                args.push(quote!(#ident));
             },
             Piece::CStr | Piece::Pointer => {
-                args.push(quote!((#arg) as *const _ as *const u8));
+                test_vars.push(quote!({ let #ident = (#arg) as *const _ as *const u8; }));
+                vars.push(quote!(let #ident = (#arg) as *const _ as *const u8;));
+                args.push(quote!(#ident));
             },
             Piece::Double => {
-                args.push(quote!((#arg) as f64));
+                test_vars.push(quote!({ let #ident = (#arg) as f64; }));
+                vars.push(quote!(let #ident = (#arg) as f64;));
+                args.push(quote!(#ident));
             },
             _ => {
-                args.push(quote!((#arg) as i64));
+                test_vars.push(quote!({ let #ident = (#arg) as i64; }));
+                vars.push(quote!(let #ident = (#arg) as i64;));
+                args.push(quote!(#ident));
             }
         }
-        i += 1;
     }
 
-    f(&vars, &args, &literal)
+    f(&test_vars, &vars, &args, &literal)
 }
 
-fn gen_literal(pieces: &Vec<Piece>) -> String {
+fn gen_literal(pieces: &[Piece]) -> String {
     let mut buf = String::new();
     pieces.iter().all(|piece| {
         match piece {
-            Piece::Literal(s) => buf.push_str(&s),
+            Piece::Literal(s) => buf.push_str(s),
             Piece::CStr => buf.push_str("%s"),
             Piece::Pointer => buf.push_str("%p"),
             Piece::Str => buf.push_str("%.*s"),
@@ -223,13 +233,13 @@ impl Parse for Input {
         let format = input.parse()?;
         if input.is_empty() {
             Ok(Input {
-                format: format,
+                format,
                 _comma: None,
                 args:   Punctuated::new(),
             })
         } else {
             Ok(Input {
-                format: format,
+                format,
                 _comma: input.parse()?,
                 args:   Punctuated::parse_terminated(input)?,
             })
@@ -248,8 +258,8 @@ impl Parse for BufInput {
         let _: Option<Token![,]> = input.parse()?;
         let input = Input::parse(input)?;
         Ok(BufInput {
-            buf: buf,
-            input: input,
+            buf,
+            input,
         })
     }
 }
