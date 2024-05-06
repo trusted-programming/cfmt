@@ -7,7 +7,6 @@
 //! # Examples
 //!
 //! ```rust
-//! extern crate hifmt;
 //! #[link(name = "c")]
 //! extern "C" {
 //!     fn dprintf(fd: i32, format: *const u8, ...) -> i32;
@@ -71,6 +70,7 @@ mod test {
     #[link(name = "c")]
     extern "C" {
         fn snprintf(buf: *mut u8, len: usize, format: *const u8, ...) -> i32;
+        fn dprintf(fd: i32, format: *const u8, ...) -> i32;
     }
 
     #[test]
@@ -81,5 +81,14 @@ mod test {
         super::bprint!(&mut buf[0..], "{:p} {:p}", s, s);
         let s = format!("0x{:x} 0x{:x}\0", n, n);
         assert_eq!(s.as_bytes(), &buf[0..s.len()]);
+    }
+
+    #[test]
+    fn test_retn_length() {
+        let s = "hello world";
+        let len = super::bprint!(&mut [], "{:rs}", s);
+        assert_eq!(len as usize, s.len());
+        let len = super::print!("{:rs}", s);
+        assert_eq!(len as usize, s.len());
     }
 }

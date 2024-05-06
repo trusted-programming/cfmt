@@ -22,7 +22,10 @@ cc: 参数类型为ascii字符，实际转换为c的int类型，对应%c
 rc: 参数类型为RUST的char，unicode scalar value，对应%s
 ```
 
-转换后的C函数定为dprintf(int fd, const char\* format, ...); 这个函数需要在用户的代码中实现。第一个参数fd，1对应stdout，2对应stderr。
+转换后的C函数定为`dprintf(int fd, const char* format, ...)`, 这个函数需要在用户的代码中实现。第一个参数fd，1对应stdout，2对应stderr。
+或`snprintf(char* buf, int len, const char* format, ...)`; 
+
+宏的返回值同`dprintf`和`snprintf`的返回值.
 
 hifmt提供如下几个宏：
 ```rust

@@ -23,10 +23,9 @@ rb: print Rust slice &[u8], see %.*s
 cc: print ASCII char into int type in C, see %c
 rc: print Rust char into unicode scalar value, see %s
 ```
+The converted C function is defined as `dprintf(int fd, const char* format, ...)`, which needs to be implemented in the user's code. The first parameter is fd. The value 1 indicates stdout, and the value 2 indicates stderr. or `snprintf(char* buf, int len, const char* format, . . . ) `;
 
-The converted C function has the spec `dprintf(int fd, const char* format, ...);`,
-which needs to be implemented in user's code. The value of the first argument `fd`,
-1 stands for `stdout`, 2 stands for `stderr`.
+The return value of the macro is the same as that of'dprintf' and'snprintf'.
 
 `hifmt` provides the following macros:
 ```rust

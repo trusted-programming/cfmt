@@ -97,7 +97,7 @@ fn csnprintf(input: TokenStream, is_str: bool) -> TokenStream {
     }
     buf_args.push(quote!(#ident.len() as usize));
     cformat(&buf_format, &input.input, |test_vars, vars, args, format| {
-        let tokens = quote!{ { #(#test_vars)* #(#buf_vars)* #(#vars)* unsafe { snprintf( #(#buf_args),*, #format.as_bytes().as_ptr(), #(#args),*); } } };
+        let tokens = quote!{ { #(#test_vars)* #(#buf_vars)* #(#vars)* unsafe { snprintf( #(#buf_args),*, #format.as_bytes().as_ptr(), #(#args),*) } } };
         tokens.into()
     })
 }
@@ -112,7 +112,7 @@ fn cprintf(input: TokenStream, ln: bool, fd: i32) -> TokenStream {
         format.push('\0');
     }
     cformat(&format, &input, |test_vars, vars, args, format| {
-        let tokens = quote!{ { #(#test_vars)* #(#vars)* unsafe { dprintf( #fd, #format.as_bytes().as_ptr(), #(#args),*); } } };
+        let tokens = quote!{ { #(#test_vars)* #(#vars)* unsafe { dprintf( #fd, #format.as_bytes().as_ptr(), #(#args),*) } } };
         tokens.into()
     })
 }
