@@ -5,7 +5,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://gitee.com/1467792822/hifmt"
 readme = "README.md"
 name = "hifmt"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 keywords = ["fmt", "no-std", "binary-size", "embedded"]
 
@@ -15,7 +15,7 @@ name = "example"
 path = "src/example.rs"
 
 [dependencies]
-hifmt-macros = { path = "macros", version = "0.2.1" }
+hifmt-macros = { path = "macros", version = "0.2.2" }
 
 [workspace]
 members = [

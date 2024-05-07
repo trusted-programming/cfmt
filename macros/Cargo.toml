@@ -4,7 +4,7 @@ description = "Format output without Rust code segment in binary to reduce the u
 license = "MIT OR Apache-2.0"
 repository = "https://gitee.com/1467792822/hifmt"
 name = "hifmt-macros"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
