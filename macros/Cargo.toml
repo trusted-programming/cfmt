@@ -2,9 +2,9 @@
 authors = ["Han Tingjun <hantingjun@huawei.com>", "Yijun Yu <yijun.yu@huawei.com>"]
 description = "Format output without Rust code segment in binary to reduce the ultimate binary size"
 license = "MIT OR Apache-2.0"
-repository = "https://gitee.com/1467792822/hifmt"
+repository = "https://gitcode.com/xuanwu/hifmt"
 name = "hifmt-macros"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

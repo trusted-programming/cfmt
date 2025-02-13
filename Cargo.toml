@@ -2,10 +2,10 @@
 authors = ["Han Tingjun <hantingjun@huawei.com>", "Yijun Yu <yijun.yu@huawei.com>"]
 description = "Format output without Rust code segment in binary to reduce the ultimate binary size"
 license = "MIT OR Apache-2.0"
-repository = "https://gitee.com/1467792822/hifmt"
+repository = "https://gitcode.com/xuanwu/hifmt"
 readme = "README.md"
 name = "hifmt"
-version = "0.1.4"
+version = "0.1.7"
 edition = "2021"
 keywords = ["fmt", "no-std", "binary-size", "embedded"]
 
@@ -15,7 +15,14 @@ name = "example"
 path = "src/example.rs"
 
 [dependencies]
-hifmt-macros = { path = "macros", version = "0.2.2" }
+hifmt-macros = { path = "macros", version = "0.2.3" }
+
+[features]
+nolibc = []
+
+[package.metadata.docs.rs]
+features = ["nolibc"]
+all-features = true
 
 [workspace]
 members = [

@@ -4,6 +4,62 @@ Rename `orion_cfmt` to `hifmt`.
 
 hifmt应用于RUST/C并存的极端受限的嵌入式环境，完全避免使用rust格式化输出功能，将RUST的格式化输出转换为C的格式化输出，最终的目标是是减少二进制大小。
 
+## 版本变更说明
+
+### v0.1.6,v0.1.7
+
+修改代码仓地址，生成feature="nolibc"的文档.
+
+### v0.1.5 增加feature = "nolibc"
+
+实际应用中存在无libc环境，此时没有`dprintf`和`snprintf`的c函数, 可能只是非常简单的字符串输出接口或者纯Rust实现.
+
+最简单情况下用户需要实现一个字符输出接口`Fn(&[u8]) -> usize`:
+
+```
+fn write_buf(info: &[u8]) -> usize {
+    // ...
+    info.len()
+}
+
+// 利用make_nolibc_formatter宏将此函数和print系列输出接口关联起来.
+hifmt::make_nolibc_formatter!(write_buf);
+// 打印输出.
+hifmt::print("hello {:rs}", "world");
+```
+
+如果用户场景还存在多线程并发打印输出, 需要完整实现`hifmt::Formatter`接口:
+
+```
+struct Printer { 
+    // ...
+};
+impl Drop for Printer {
+    fn drop(&mut self) {
+        // unlock
+    }
+}
+
+impl hifmt::Formatter for Printer {
+    fn new(fd: i32) -> Self {
+        Printer {
+            // Lock
+        }
+    }
+    fn write_buf(&mut self, info: &[u8]) -> usize {
+        // ...
+        // info.len()
+    }
+}
+
+// 利用make_nolibc_formatter宏将此结构体实现和print系列输出接口关联起来.
+hifmt::nolibc_formatter!(Printer);
+// 打印输出.
+hifmt::print("hello: {:rs}", "world");
+```
+
+**注意**: 因为`f64::log10`, `f64::powf`依赖`std`, 无法在`no_std`环境使用，因此浮点数的输出格式和`c`语言中的`%e`不同，最终格式为`d.dddd*2^d`用`2`的指数来表达. 使用者可按需替换掉`hifmt::Formatter`中的缺省实现.
+
 ## 使用方式Usage
 
 格式化字符串的规则定义如下：
@@ -19,7 +75,7 @@ cs: 参数类型为C字符串指针，对应%s
 rs: 参数类型为&str, 对应%.*s
 rb: 参数类型为&[u8], 对应%.*s
 cc: 参数类型为ascii字符，实际转换为c的int类型，对应%c
-rc: 参数类型为RUST的char，unicode scalar value，对应%s
+rc: 参数类型为RUST的char，unicode scalar value，对应%.*s
 ```
 
 转换后的C函数定为`dprintf(int fd, const char* format, ...)`, 这个函数需要在用户的代码中实现。第一个参数fd，1对应stdout，2对应stderr。

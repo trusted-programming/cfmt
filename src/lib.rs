@@ -1,5 +1,5 @@
 //! hifmt - Format output without Rust code segment in binary
-//! 
+//!
 //! # Design objective:
 //! 1. The print output depends on the API of C
 //! 2. Eliminate the dependency on Display/Debug trait.
@@ -10,8 +10,17 @@
 //! #[link(name = "c")]
 //! extern "C" {
 //!     fn dprintf(fd: i32, format: *const u8, ...) -> i32;
+//!     #[cfg(not(feature = "nolibc"))]
 //!     fn snprintf(buf: *mut u8, size: usize, format: *const u8, ...) -> i32;
 //! }
+//!
+//! #[cfg(feature = "nolibc")]
+//! fn write_buf(buf: &[u8]) -> usize {
+//!     unsafe { dprintf(1, b"%.*s\0".as_ptr(), buf.len() as i32, buf.as_ptr()) as usize }
+//! }
+//! #[cfg(feature = "nolibc")]
+//! hifmt::make_nolibc_formatter!(write_buf);
+//!
 //! hifmt::println!("hello world");
 //! hifmt::println!("signed decimal {:d}", -1);
 //! hifmt::println!("unsigned decimal {:u}", -1);
@@ -28,67 +37,58 @@
 //! hifmt::bprint!(&mut buf, "snprintf rust string {:rs}", "hello world");
 //! hifmt::println!("c str {:cs}", &buf);
 //!
+//! //test_retn_length
+//! let s = "hello world";
+//! let len = hifmt::bprint!(&mut [], "{:rs}", s);
+//! assert_eq!(len as usize, s.len());
+//! let len = hifmt::print!("{:rs}", s);
+//! assert_eq!(len as usize, s.len());
+//!
+//!
+//! // test_fat_pointer
+//! let mut buf = [0_u8; 100];
+//! let s = "hello";
+//! let n = s as *const _ as *const u8 as usize;
+//! hifmt::bprint!(&mut buf[0..], "{:p} {:p}", s, s);
+//! let s = format!("0x{:x} 0x{:x}\0", n, n);
+//! assert_eq!(s.as_bytes(), &buf[0..s.len()]);
+//! ```
+//!
 
-#![no_std]
+//#![no_std]
 
-pub use hifmt_macros::{
-    print, println, eprint, eprintln,
-    cprint, cprintln, ceprint, ceprintln,
-    csprint, cbprint, sprint, bprint
-};
+#[cfg(not(feature = "nolibc"))]
+mod libc;
+#[cfg(not(feature = "nolibc"))]
+pub use libc::*;
+
+#[cfg(feature = "nolibc")]
+mod nolibc;
+#[cfg(feature = "nolibc")]
+pub use nolibc::*;
 
 #[inline(never)]
-pub fn encode_utf8(c: char, buf: &mut [u8; 5]) -> *const u8 {
+pub fn encode_utf8(c: char, buf: &mut [u8; 4]) -> &[u8] {
     let mut u = c as u32;
-    buf[4] = 0_u8;
     if u <= 0x7F {
         buf[3] = u as u8;
-        return &buf[3] as *const u8;
+        return &buf[3..];
     }
     buf[3] = (u as u8 & 0x3F) | 0x80;
     u >>= 6;
     if u <= 0x1F {
         buf[2] = (u | 0xC0) as u8;
-        return &buf[2] as *const u8;
+        return &buf[2..];
     }
     buf[2] = (u as u8 & 0x3F) | 0x80;
     u >>= 6;
     if u <= 0xF {
         buf[1] = (u | 0xE0) as u8;
-        return &buf[1] as *const u8;
-    } 
+        return &buf[1..];
+    }
     buf[1] = (u as u8 & 0x3F) | 0x80;
     u >>= 6;
     buf[0] = (u | 0xF0) as u8;
-    buf as *const u8
+    buf
 }
 
-#[cfg(test)]
-mod test {
-    extern crate std;
-    use std::format;
-    #[link(name = "c")]
-    extern "C" {
-        fn snprintf(buf: *mut u8, len: usize, format: *const u8, ...) -> i32;
-        fn dprintf(fd: i32, format: *const u8, ...) -> i32;
-    }
-
-    #[test]
-    fn test_fat_pointer() {
-        let mut buf = [0_u8; 100];
-        let s = "hello";
-        let n = s as *const _ as *const u8 as usize;
-        super::bprint!(&mut buf[0..], "{:p} {:p}", s, s);
-        let s = format!("0x{:x} 0x{:x}\0", n, n);
-        assert_eq!(s.as_bytes(), &buf[0..s.len()]);
-    }
-
-    #[test]
-    fn test_retn_length() {
-        let s = "hello world";
-        let len = super::bprint!(&mut [], "{:rs}", s);
-        assert_eq!(len as usize, s.len());
-        let len = super::print!("{:rs}", s);
-        assert_eq!(len as usize, s.len());
-    }
-}

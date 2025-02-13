@@ -6,6 +6,61 @@ Restricted on embedded systems, the goal of `hifmt` is to reduce the ultimate
 binary size. With `hifmt`, one could avoid the uses of Rust format print
 function by converting them into formatted print in C. 
 
+## Version Changes Notice
+
+### v0.1.6,v0.1.7
+
+Modify the code repository and generate the document with `--all-features`.
+
+### v0.1.5: add feature = "nolibc"
+
+In practical applications, there exists an environment without libc(dprintf and snprintf). It is possible that only minimal string handling functionality exists or that fully written-in Rust code has been developed. See the following sample:
+
+For simplicity, users need to implement a output interface `Fn(&[u8]) -> usize`:
+
+```rust
+fn write_buf(info: &[u8]) -> usize {
+    // ...
+    // info.len()
+}
+
+// Utilize make_nolibc_formatter! to link this function with print series output interfaces.
+hifmt::make_nolibc_formatter!(write_buf);
+// Print the output
+hifmt::print("hello {:rs}", "world");
+```
+
+If multiple threads are used to print output concurently, the `hifmt::Formatter` interface may be implemented.
+
+```
+struct Printer { 
+    // ...
+};
+impl Drop for Printer {
+    fn drop(&mut self) {
+        // unlock
+    }
+}
+
+impl hifmt::Formatter for Printer {
+    fn new(fd: i32) -> Self {
+        Printer {
+            // Lock
+        }
+    }
+    fn write_buf(&mut self, info: &[u8]) -> usize {
+        // ...
+        // info.len()
+    }
+}
+
+// Utilize nolibc_formatter! to link this struct with print series output interfaces.
+hifmt::nolibc_formatter!(Printer);
+// Print the output
+hifmt::print("hello: {:rs}", "world");
+```
+**Note**: Since `f64::log10, f64::powf` depend on std, they cannot be used in a `no_std` environment, thus the output format of floating-point numbers using c-like `%e` will differ. Finally, the output format is `d.dddd*2^d` using `2's exponent`, not `10's exponent`.
+ 
 ## Usage
 
 The specification of the formatted strings is defined as follows:
